@@ -38,18 +38,29 @@ def get_month_data(*, dev_code, year, month, tag_code):
             bs = BeautifulSoup(response.text, 'html.parser')
             data = []
             current_ts = ''
+            current_data = None
             for i, td in enumerate(bs.find_all('td', class_='text-center')):
-                elem = i % 3
+                # 2 first columns always represent timestamp
+                elem = i % (len(tag_data_map[tag_code]) + 2)
                 # date
                 if elem == 0:
+                    if i != 0:
+                        data.append(DataEntry(dev_code, tag_code, datetime.strptime(
+                            current_ts, '%d-%m-%YT%H:%M'), current_data))
                     current_ts = td.string.strip()
                 # time
                 elif elem == 1:
                     current_ts += 'T%s' % td.string.strip()
+                    current_data = current_ts
                 # data
                 else:
-                    data.append(DataEntry(dev_code, tag_code,
-                                          datetime.strptime(current_ts, '%d-%m-%YT%H:%M'), td.string.strip()))
+                    current_data = tag_data_map[tag_code][elem -
+                                                          2](current_data, td.string.strip())
+
+            # Repeat one last time for last element
+            data.append(DataEntry(dev_code, tag_code, datetime.strptime(
+                current_ts, '%d-%m-%YT%H:%M'), current_data))
+
             return data
         else:
             response.raise_for_status()
@@ -58,14 +69,15 @@ def get_month_data(*, dev_code, year, month, tag_code):
 
 
 def main():
-    for m in range(1, 13):
-        month_data = get_month_data(
-            dev_code=DEV_RODELILLO,
-            year=2013,
-            month=m,
-            tag_code=TAG_TEMPERATURE)
-        for entry in month_data:
-            print(entry)
+    for y in range(2013, 2018):
+        for m in range(1, 13):
+            month_data = get_month_data(
+                dev_code=DEV_RODELILLO,
+                year=y,
+                month=m,
+                tag_code=TAG_WIND_DATA)
+            for entry in month_data:
+                print(entry)
 
 
 if __name__ == '__main__':
